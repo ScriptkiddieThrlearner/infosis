@@ -117,7 +117,7 @@ class LoginScreen(BaseScreen):
         frame.pack(fill="both", expand=True, padx=40)
         f = frame.scrollable_frame
 
-        tk.Label(f, text="🔒 Secure Login", font=TITLE_FONT, bg=BG_COLOR, fg=HIGHLIGHT).pack(pady=20)
+        tk.Label(f, text="🔒 Infosis Login", font=TITLE_FONT, bg=BG_COLOR, fg=HIGHLIGHT).pack(pady=20)
 
         self.entry_with_label(f, "👤 Username", self.username)
         self.entry_with_label(f, "🔐 Password", self.password, show="*")
