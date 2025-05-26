@@ -46,4 +46,3 @@ def update_password_history(username, new_hashed_password):
             user['created_at'] = datetime.now().isoformat()
             break
     save_users(users)
-

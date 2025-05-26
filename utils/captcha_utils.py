@@ -1,9 +1,9 @@
 import random
-import string
 
-def generate_captcha(length=5):
-    captcha = ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
-    return captcha
+def generate_captcha():
+    a = random.randint(1, 9)
+    b = random.randint(1, 9)
+    return f"{a} + {b}", str(a + b)
 
-def validate_captcha(actual, user_input):
-    return actual.strip().lower() == user_input.strip().lower()
+def validate_captcha(expected, user_input):
+    return expected.strip() == user_input.strip()

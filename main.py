@@ -12,90 +12,107 @@ from utils.db_utils import save_user, load_users
 from utils.extras import is_password_reused, update_password_history, is_password_expired
 from security import hash_password
 
+BG_COLOR = "#121212"
+FG_COLOR = "#e0e0e0"
+ENTRY_BG = "#1f1f1f"
+HIGHLIGHT = "#03dac6"
+BUTTON_BG = "#1e88e5"
+BUTTON_ACTIVE = "#1565c0"
+FONT = ("Segoe UI", 14)
+LABEL_FONT = ("Segoe UI", 11)
+TITLE_FONT = ("Segoe UI", 16, "bold")
+ENTRY_WIDTH = 36
+ENTRY_PADY = 10
+BTN_BG = "#1f8ef1"
+BTN_FG = "white"
+BTN_ACTIVE = "#1565c0"
+BTN_FONT = ("Segoe UI", 11, "bold")
+
+
+def authenticate(username, password):
+    for user in load_users():
+        if user["username"].lower() == username.lower():
+            return bcrypt.checkpw(password.encode(), user["password_hash"].encode())
+    return False
 
 class RegistrationApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Infosis - Secure Registration")
-        self.root.geometry("400x550")
-        self.root.configure(bg="#0f0f1a")
+        self.root.geometry("420x600")
+        self.root.configure(bg=BG_COLOR)
 
+        self.fullname_var = tk.StringVar()
         self.username_var = tk.StringVar()
+        self.email_var = tk.StringVar()
         self.password_var = tk.StringVar()
+        self.confirm_password_var = tk.StringVar()
         self.captcha_answer_var = tk.StringVar()
         self.captcha_text = ""
 
         self.create_widgets()
 
-    def styled_label(self, text, size=11, bold=False, color="#cfd3ec"):
-        return tk.Label(self.root, text=text,
-                        fg=color, bg="#0f0f1a",
-                        font=("Segoe UI", size, "bold" if bold else "normal"))
-
-    def styled_entry(self, variable, show=None):
-        return tk.Entry(self.root, textvariable=variable,
-                        show=show, bg="#1a1a2e", fg="white",
-                        insertbackground="white", relief="flat",
-                        font=("Consolas", 11), width=30)
-
-    def styled_button(self, text, command):
-        return tk.Button(self.root, text=text, command=command,
-                         bg="#1e90ff", fg="white",
-                         activebackground="#2c2c54", activeforeground="white",
-                         relief="flat", width=20,
-                         font=("Segoe UI", 10, "bold"))
-
     def create_widgets(self):
-        container = tk.Frame(self.root, bg="#0f0f1a")
-        container.pack(expand=True)
+        container = tk.Frame(self.root, bg=BG_COLOR)
+        container.pack(fill="both", expand=True)
 
-        def spacer(height=10):
-            tk.Label(container, text="", bg="#0f0f1a").pack(pady=height)
+        canvas = tk.Canvas(container, bg=BG_COLOR, highlightthickness=0)
+        scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=BG_COLOR)
 
-        tk.Label(container, text="🛡️ Register Secure Account",
-                 fg="#00ffe5", bg="#0f0f1a",
-                 font=("Segoe UI", 16, "bold")).pack(pady=(0, 10))
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
 
-        tk.Label(container, text="👤 Username", fg="#cfd3ec", bg="#0f0f1a", font=("Segoe UI", 11)).pack()
-        tk.Entry(container, textvariable=self.username_var,
-                 bg="#1a1a2e", fg="white", insertbackground="white",
-                 font=("Consolas", 11), relief="flat", width=30).pack(pady=5)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
 
-        tk.Label(container, text="🔒 Password", fg="#cfd3ec", bg="#0f0f1a", font=("Segoe UI", 11)).pack()
-        self.password_entry = tk.Entry(container, textvariable=self.password_var,
-                                       show="*", bg="#1a1a2e", fg="white", insertbackground="white",
-                                       font=("Consolas", 11), relief="flat", width=30)
-        self.password_entry.pack(pady=5)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
-        self.strength_label = tk.Label(container, text="Password strength:",
-                                       fg="#d3d3d3", bg="#0f0f1a", font=("Segoe UI", 10))
-        self.strength_label.pack(pady=2)
+        # Add widgets in scrollable_frame
+        tk.Label(scrollable_frame, text="🛡️ Register Secure Account", fg=HIGHLIGHT, bg=BG_COLOR, font=TITLE_FONT).pack(
+            pady=(20, 20))
+
+        self.labeled_entry(scrollable_frame, "🧑 Full Name", self.fullname_var)
+        self.labeled_entry(scrollable_frame, "👤 Username", self.username_var)
+        self.labeled_entry(scrollable_frame, "📧 Email", self.email_var)
+        self.password_entry = self.labeled_entry(scrollable_frame, "🔒 Password", self.password_var, show="*")
+        self.labeled_entry(scrollable_frame, "🔒 Confirm Password", self.confirm_password_var, show="*")
+
+        self.strength_label = tk.Label(scrollable_frame, text="Password strength:", fg=FG_COLOR, bg=BG_COLOR, font=FONT)
+        self.strength_label.pack(pady=(5, 10))
 
         self.password_entry.bind("<KeyRelease>", self.update_strength)
 
-        spacer(10)
-        tk.Label(container, text="🤖 CAPTCHA", fg="#cfd3ec", bg="#0f0f1a", font=("Segoe UI", 11)).pack()
-        self.captcha_label = tk.Label(container, font=("Courier New", 18, "bold"),
-                                      fg="#00ffae", bg="#0f0f1a")
-        self.captcha_label.pack()
+        tk.Label(scrollable_frame, text="🤖 CAPTCHA", fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack()
+        self.captcha_label = tk.Label(scrollable_frame, text="", fg=HIGHLIGHT, bg=BG_COLOR,
+                                      font=("Courier", 20, "bold"))
+        self.captcha_label.pack(pady=5)
+
         self.reload_captcha()
 
-        tk.Entry(container, textvariable=self.captcha_answer_var,
-                 bg="#1a1a2e", fg="white", insertbackground="white",
-                 font=("Consolas", 11), relief="flat", width=30).pack(pady=(5, 15))
+        tk.Entry(scrollable_frame, textvariable=self.captcha_answer_var, bg=ENTRY_BG, fg=FG_COLOR,
+                 insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH).pack(pady=(5, 15))
 
-        btn_style = {
-            "bg": "#1f8ef1", "fg": "white",
-            "activebackground": "#2962ff", "activeforeground": "white",
-            "relief": "flat", "font": ("Segoe UI", 10, "bold"),
-            "bd": 0, "highlightthickness": 1,
-            "highlightcolor": "#00ffae", "highlightbackground": "#00ffae",
-            "width": 25, "padx": 10, "pady": 5
-        }
+        self.styled_button(scrollable_frame, "🔁 Reload CAPTCHA", self.reload_captcha)
+        self.styled_button(scrollable_frame, "✅ Register", self.register)
+        self.styled_button(scrollable_frame, "🔐 Go to Login", self.switch_to_login)
 
-        tk.Button(container, text="🔁 Reload CAPTCHA", command=self.reload_captcha, **btn_style).pack(pady=5)
-        tk.Button(container, text="✅ Register", command=self.register, **btn_style).pack(pady=8)
-        tk.Button(container, text="🔐 Go to Login", command=self.switch_to_login, **btn_style).pack(pady=5)
+    def labeled_entry(self, parent, label_text, variable, **kwargs):
+        tk.Label(parent, text=label_text, fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack(anchor="w", padx=20)
+        entry = tk.Entry(parent, textvariable=variable, bg=ENTRY_BG, fg=FG_COLOR,
+                         insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH, **kwargs)
+        entry.pack(fill="x", padx=20, pady=(0, ENTRY_PADY))
+        return entry
+
+    def styled_button(self, parent, text, command):
+        btn = tk.Button(parent, text=text, command=command, bg=BTN_BG, fg=BTN_FG,
+                        activebackground=BTN_ACTIVE, activeforeground=BTN_FG,
+                        font=BTN_FONT, relief="flat", cursor="hand2")
+        btn.pack(fill="x", pady=(0, 10))
+        return btn
 
     def update_strength(self, event=None):
         password = self.password_var.get()
@@ -107,9 +124,16 @@ class RegistrationApp:
         self.captcha_label.config(text=self.captcha_text)
 
     def register(self):
+        fullname = self.fullname_var.get().strip()
         username = self.username_var.get().strip()
+        email = self.email_var.get().strip()
         password = self.password_var.get().strip()
+        confirm_password = self.confirm_password_var.get().strip()
         captcha_input = self.captcha_answer_var.get().strip()
+
+        if password != confirm_password:
+            messagebox.showerror("Error", "Passwords do not match.")
+            return
 
         if not username or not password or not captcha_input:
             messagebox.showerror("Error", "All fields are required.")
@@ -148,86 +172,58 @@ class RegistrationApp:
         LoginApp(root)
         root.mainloop()
 
-
 class LoginApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Infosis - Login")
-        self.root.geometry("400x400")
-        self.root.configure(bg="#0f0f1a")
+        self.root.geometry("420x500")
+        self.root.configure(bg=BG_COLOR)
 
         self.username_var = tk.StringVar()
         self.password_var = tk.StringVar()
+        self.captcha_answer_var = tk.StringVar()
+        self.captcha_text = ""
+
         self.create_widgets()
 
-    def styled_label(self, text, size=11, bold=False, color="#cfd3ec"):
-        return tk.Label(self.root, text=text,
-                        fg=color, bg="#0f0f1a",
-                        font=("Segoe UI", size, "bold" if bold else "normal"))
-
-    def styled_entry(self, variable, show=None):
-        return tk.Entry(self.root, textvariable=variable,
-                        show=show, bg="#1a1a2e", fg="white",
-                        insertbackground="white", relief="flat",
-                        font=("Consolas", 11), width=30)
-
-    def styled_button(self, text, command):
-        return tk.Button(self.root, text=text, command=command,
-                         bg="#1f8ef1", fg="white",
-                         activebackground="#2962ff", activeforeground="white",
-                         relief="flat", width=25,
-                         font=("Segoe UI", 10, "bold"),
-                         bd=0, highlightthickness=1, highlightcolor="#00ffae", highlightbackground="#00ffae")
-
     def create_widgets(self):
-        # Title
-        tk.Label(self.root, text="🛡️Infosis",
-                 fg="#00ffe5", bg="#0f0f1a",
-                 font=("Segoe UI", 16, "bold")).pack(pady=(20, 10))
+        tk.Label(self.root, text="🛡️ Login to Infosis", fg=HIGHLIGHT, bg=BG_COLOR, font=TITLE_FONT).pack(pady=(20, 20))
+        self.labeled_entry("👤 Username", self.username_var)
+        self.labeled_entry("🔒 Password", self.password_var, show="*")
 
-        #Username Field
-        tk.Label(self.root, text="👤 Username", fg="#cfd3ec", bg="#0f0f1a", font=("Segoe UI", 11)).pack(pady=(5, 0))
-        tk.Entry(self.root, textvariable=self.username_var,
-                 bg="#1a1a2e", fg="white", insertbackground="white",
-                 font=("Consolas", 11), relief="flat", width=30).pack(pady=5)
-
-        #Password Field
-        tk.Label(self.root, text="🔒 Password", fg="#cfd3ec", bg="#0f0f1a", font=("Segoe UI", 11)).pack(pady=(10, 0))
-        self.password_entry = tk.Entry(self.root, textvariable=self.password_var,
-                                       show="*", bg="#1a1a2e", fg="white", insertbackground="white",
-                                       font=("Consolas", 11), relief="flat", width=30)
-        self.password_entry.pack(pady=5)
-
-        self.strength_label = tk.Label(self.root, text="Password strength:",
-                                       fg="#d3d3d3", bg="#0f0f1a", font=("Segoe UI", 10))
+        self.strength_label = tk.Label(self.root, text="Password strength:", fg=FG_COLOR, bg=BG_COLOR, font=FONT)
         self.strength_label.pack(pady=2)
-
         self.password_entry.bind("<KeyRelease>", self.update_strength)
 
-        # CAPTCHA
-        tk.Label(self.root, text="🤖 CAPTCHA", fg="#cfd3ec", bg="#0f0f1a", font=("Segoe UI", 11)).pack(pady=(20, 0))
-        self.captcha_label = tk.Label(self.root, font=("Courier New", 18, "bold"),
-                                      fg="#00ffae", bg="#0f0f1a")
-        self.captcha_label.pack()
+        tk.Label(self.root, text="🤖 CAPTCHA", fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack()
+        self.captcha_label = tk.Label(self.root, text="", fg=HIGHLIGHT, bg=BG_COLOR, font=("Courier", 20, "bold"))
+        self.captcha_label.pack(pady=5)
         self.reload_captcha()
 
-        tk.Entry(self.root, textvariable=self.captcha_answer_var,
-                 bg="#1a1a2e", fg="white", insertbackground="white",
-                 font=("Consolas", 11), relief="flat", width=30).pack(pady=(5, 15))
+        tk.Entry(self.root, textvariable=self.captcha_answer_var, bg=ENTRY_BG, fg=FG_COLOR, insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH).pack(pady=(5, 15))
 
-        # Buttons
-        button_style = {
-            "bg": "#1f8ef1", "fg": "white",
-            "activebackground": "#2962ff", "activeforeground": "white",
-            "relief": "flat", "font": ("Segoe UI", 10, "bold"),
-            "bd": 0, "highlightthickness": 1,
-            "highlightcolor": "#00ffae", "highlightbackground": "#00ffae",
-            "width": 25, "padx": 10, "pady": 5
-        }
+        self.styled_button("🔁 Reload CAPTCHA", self.reload_captcha)
+        self.styled_button("✅ Login", self.login)
+        self.styled_button("🔄 Back to Register", self.switch_to_register)
 
-        tk.Button(self.root, text="🔁 Reload CAPTCHA", command=self.reload_captcha, **button_style).pack(pady=5)
-        tk.Button(self.root, text="✅ Register", command=self.register, **button_style).pack(pady=8)
-        tk.Button(self.root, text="🔐 Go to Login", command=self.switch_to_login, **button_style).pack(pady=5)
+    def labeled_entry(self, label, variable, show=None):
+        tk.Label(self.root, text=label, fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack()
+        entry = tk.Entry(self.root, textvariable=variable, show=show, bg=ENTRY_BG, fg=FG_COLOR, insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH)
+        entry.pack(pady=ENTRY_PADY)
+        if label == "🔒 Password":
+            self.password_entry = entry
+
+    def styled_button(self, text, command):
+        tk.Button(self.root, text=text, command=command, bg=BUTTON_BG, fg="white", activebackground=BUTTON_ACTIVE, activeforeground="white", font=FONT, relief="flat", width=25, pady=6).pack(pady=6)
+
+    def update_strength(self, event=None):
+        password = self.password_var.get()
+        strength, _ = check_password_strength(password)
+        self.strength_label.config(text=f"Password strength: {strength}")
+
+    def reload_captcha(self):
+        self.captcha_text = generate_captcha()
+        self.captcha_label.config(text=self.captcha_text)
 
     def switch_to_register(self):
         self.root.destroy()
@@ -235,7 +231,20 @@ class LoginApp:
         RegistrationApp(root)
         root.mainloop()
 
+    def login(self):
+        username = self.username_var.get().strip()
+        password = self.password_var.get().strip()
+        captcha_input = self.captcha_answer_var.get().strip()
 
+        if not validate_captcha(self.captcha_text, captcha_input):
+            messagebox.showerror("CAPTCHA", "Incorrect CAPTCHA.")
+            self.reload_captcha()
+            return
+
+        if authenticate(username, password):
+            messagebox.showinfo("Success", "Login successful!")
+        else:
+            messagebox.showerror("Failed", "Incorrect username or password.")
 
 if __name__ == "__main__":
     root = tk.Tk()
