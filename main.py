@@ -194,7 +194,7 @@ class RegisterScreen(BaseScreen):
         btn_frame = tk.Frame(f, bg=BG_COLOR)
         btn_frame.pack(pady=10)
         self.styled_button(btn_frame, "✅ Register", self.register).grid(row=0, column=0, padx=8)
-        self.styled_button(btn_frame, "⬅ Back", self.parent.show_login).grid(row=0, column=1, padx=8)
+        self.styled_button(btn_frame, "⬅ Login", self.parent.show_login).grid(row=0, column=1, padx=8)
 
     def check_strength(self, event=None):
         strength, _ = check_password_strength(self.password.get())
