@@ -67,11 +67,12 @@ class RegistrationApp:
 
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Add widgets in scrollable_frame
+        #Adding the widgets in scrollable
         tk.Label(scrollable_frame, text="🛡️ Register Secure Account", fg=HIGHLIGHT, bg=BG_COLOR, font=TITLE_FONT).pack(
             pady=(20, 20))
 
@@ -100,12 +101,41 @@ class RegistrationApp:
         self.styled_button(scrollable_frame, "✅ Register", self.register)
         self.styled_button(scrollable_frame, "🔐 Go to Login", self.switch_to_login)
 
-    def labeled_entry(self, parent, label_text, variable, **kwargs):
-        tk.Label(parent, text=label_text, fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack(anchor="w", padx=20)
-        entry = tk.Entry(parent, textvariable=variable, bg=ENTRY_BG, fg=FG_COLOR,
-                         insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH, **kwargs)
-        entry.pack(fill="x", padx=20, pady=(0, ENTRY_PADY))
+    def bind_mousewheel(widget, target):
+        widget.bind_all("<MouseWheel>", lambda e: target.yview_scroll(int(-1 * (e.delta / 120)), "units"))  # Windows
+        widget.bind_all("<Button-4>", lambda e: target.yview_scroll(-1, "units"))  # Linux
+        widget.bind_all("<Button-5>", lambda e: target.yview_scroll(1, "units"))  # Linux
+
+    def labeled_entry(self, parent, label_text, variable, show=None):
+        frame = tk.Frame(parent, bg=BG_COLOR)
+        frame.pack(fill="x", padx=20, pady=(5, 10))
+
+        tk.Label(frame, text=label_text, fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack(anchor="w")
+
+        entry_frame = tk.Frame(frame, bg=BG_COLOR)
+        entry_frame.pack(fill="x")
+
+        entry = tk.Entry(entry_frame, textvariable=variable, bg=ENTRY_BG, fg=FG_COLOR,
+                         insertbackground=FG_COLOR, font=FONT, relief="flat", show=show)
+        entry.grid(row=0, column=0, sticky="ew")
+
+        if show == "*":
+            toggle_btn = tk.Button(entry_frame, text="👁", bg=BG_COLOR, fg=HIGHLIGHT,
+                                   font=("Segoe UI", 10, "bold"), bd=0, relief="flat",
+                                   command=lambda: self.toggle_visibility(entry, toggle_btn))
+            toggle_btn.grid(row=0, column=1, padx=(5, 0))
+
+        entry_frame.columnconfigure(0, weight=1)
+
         return entry
+
+    def toggle_visibility(self, entry, button):
+        if entry.cget('show') == '':
+            entry.config(show='*')
+            button.config(text='👁')
+        else:
+            entry.config(show='')
+            button.config(text='🙈')
 
     def styled_button(self, parent, text, command):
         btn = tk.Button(parent, text=text, command=command, bg=BTN_BG, fg=BTN_FG,
@@ -187,31 +217,92 @@ class LoginApp:
         self.create_widgets()
 
     def create_widgets(self):
-        tk.Label(self.root, text="🛡️ Login to Infosis", fg=HIGHLIGHT, bg=BG_COLOR, font=TITLE_FONT).pack(pady=(20, 20))
-        self.labeled_entry("👤 Username", self.username_var)
-        self.labeled_entry("🔒 Password", self.password_var, show="*")
+        container = tk.Frame(self.root, bg=BG_COLOR)
+        container.pack(fill="both", expand=True)
 
-        self.strength_label = tk.Label(self.root, text="Password strength:", fg=FG_COLOR, bg=BG_COLOR, font=FONT)
-        self.strength_label.pack(pady=2)
+        canvas = tk.Canvas(container, bg=BG_COLOR, highlightthickness=0)
+        scrollbar = tk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=BG_COLOR)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Header
+        tk.Label(scrollable_frame, text="🛡️ Register Secure Account", fg=HIGHLIGHT, bg=BG_COLOR, font=TITLE_FONT).pack(
+            pady=(20, 20))
+
+        # Input Fields
+        self.labeled_entry(scrollable_frame, "🧑 Full Name", self.fullname_var)
+        self.labeled_entry(scrollable_frame, "👤 Username", self.username_var)
+        self.labeled_entry(scrollable_frame, "📧 Email", self.email_var)
+        self.password_entry = self.labeled_entry(scrollable_frame, "🔒 Password", self.password_var, show="*")
+        self.confirm_password_entry = self.labeled_entry(scrollable_frame, "🔒 Confirm Password",
+                                                         self.confirm_password_var, show="*")
+
+        # Password Strength Info here
+        self.strength_label = tk.Label(scrollable_frame, text="Password strength:", fg=FG_COLOR, bg=BG_COLOR, font=FONT)
+        self.strength_label.pack(pady=(5, 15), anchor="center")
         self.password_entry.bind("<KeyRelease>", self.update_strength)
 
-        tk.Label(self.root, text="🤖 CAPTCHA", fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack()
-        self.captcha_label = tk.Label(self.root, text="", fg=HIGHLIGHT, bg=BG_COLOR, font=("Courier", 20, "bold"))
-        self.captcha_label.pack(pady=5)
+        # CAPTCHA Section here
+        captcha_section = tk.Frame(scrollable_frame, bg=BG_COLOR)
+        captcha_section.pack(pady=(10, 10))
+
+        tk.Label(captcha_section, text="🤖 CAPTCHA", fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack(anchor="center")
+
+        self.labeled_entry(scrollable_frame, "🤖 CAPTCHA", self.captcha_answer_var)
+
+        self.captcha_label = tk.Label(scrollable_frame, text="", fg=HIGHLIGHT, bg=BG_COLOR,
+                                      font=("Courier", 22, "bold"))
+        self.captcha_label.pack(pady=(0, 10))
         self.reload_captcha()
+        tk.Entry(captcha_section, textvariable=self.captcha_answer_var, bg=ENTRY_BG, fg=FG_COLOR,
+                 insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH).pack(pady=(0, 15))
 
-        tk.Entry(self.root, textvariable=self.captcha_answer_var, bg=ENTRY_BG, fg=FG_COLOR, insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH).pack(pady=(5, 15))
+        #Buttons Section here
+        button_frame = tk.Frame(scrollable_frame, bg=BG_COLOR)
+        button_frame.pack(pady=(5, 20))
 
-        self.styled_button("🔁 Reload CAPTCHA", self.reload_captcha)
-        self.styled_button("✅ Login", self.login)
-        self.styled_button("🔄 Back to Register", self.switch_to_register)
+        self.styled_button(button_frame, "🔁 Reload CAPTCHA", self.reload_captcha)
+        self.styled_button(button_frame, "✅ Register", self.register)
+        self.styled_button(button_frame, "🔐 Go to Login", self.switch_to_login)
 
-    def labeled_entry(self, label, variable, show=None):
-        tk.Label(self.root, text=label, fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack()
-        entry = tk.Entry(self.root, textvariable=variable, show=show, bg=ENTRY_BG, fg=FG_COLOR, insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH)
-        entry.pack(pady=ENTRY_PADY)
-        if label == "🔒 Password":
-            self.password_entry = entry
+    def labeled_entry(self, parent, label_text, variable, show=None):
+        frame = tk.Frame(parent, bg=BG_COLOR)
+        frame.pack(fill="x", padx=20, pady=(5, 10))
+
+        tk.Label(frame, text=label_text, fg=FG_COLOR, bg=BG_COLOR, font=LABEL_FONT).pack(anchor="w")
+
+        entry_frame = tk.Frame(frame, bg=BG_COLOR)
+        entry_frame.pack(fill="x")
+
+        entry = tk.Entry(entry_frame, textvariable=variable, bg=ENTRY_BG, fg=FG_COLOR,
+                         insertbackground=FG_COLOR, font=FONT, relief="flat", width=ENTRY_WIDTH, show=show)
+        entry.pack(side="left", fill="x", expand=True)
+
+        if show == "*":
+            toggle_btn = tk.Button(entry_frame, text="👁", command=lambda: self.toggle_visibility(entry, toggle_btn),
+                                   bg=BG_COLOR, fg=HIGHLIGHT, bd=0, font=("Segoe UI", 10, "bold"), relief="flat")
+            toggle_btn.pack(side="right")
+
+        return entry
+
+    def toggle_visibility(self, entry, button):
+        if entry.cget('show') == '':
+            entry.config(show='*')
+            button.config(text='👁')
+        else:
+            entry.config(show='')
+            button.config(text='🙈')
 
     def styled_button(self, text, command):
         tk.Button(self.root, text=text, command=command, bg=BUTTON_BG, fg="white", activebackground=BUTTON_ACTIVE, activeforeground="white", font=FONT, relief="flat", width=25, pady=6).pack(pady=6)
